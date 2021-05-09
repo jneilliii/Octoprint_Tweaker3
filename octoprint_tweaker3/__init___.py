@@ -12,7 +12,7 @@ import flask
 from .MeshTweaker import Tweak
 from . import FileHandler
 
-class TweakerPlugin():
+class TweakerPlugin(octoprint.Plugin):
 
     # ~~ Softwareupdate hook
 
@@ -70,7 +70,7 @@ def tweak_on_upload(path, file_object, links=None, printer_profile=None, allow_o
             raise FileNotFoundError("Output File '{}' not found.".format(path))
     
 
-    return octoprint.filemanager.util.DiskFileWrapper(file_object.filename, path))
+    return octoprint.filemanager.util.DiskFileWrapper(file_object.filename, path)
 
 _plugin_pythoncompat__ = ">=2.7,<4" # python 2 and 3
 
