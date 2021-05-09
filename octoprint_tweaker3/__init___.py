@@ -12,7 +12,7 @@ import flask
 from .MeshTweaker import Tweak
 from . import FileHandler
 
-class TweakerPlugin(octoprint.plugin.SimpleApiPlugin):
+class TweakerPlugin():
 
     # ~~ Softwareupdate hook
 
@@ -36,54 +36,41 @@ class TweakerPlugin(octoprint.plugin.SimpleApiPlugin):
             )
         )
 
-    def get_api_commands(self):
-        return dict(
-            tweak=["inputfile", "outputfile", "slice"],
-            )
+def tweak_on_upload(path, file_object, links=None, printer_profile=None, allow_overwrite=True, *args, **kwargs):
+    
 
-    def on_api_command(self, command, data):
-        self._logger.info(command)
-        if command == "tweak":
-            if inputfile in data:
-                arguments.inputfile = data["inputfile"]
-            else:
-                flask.abort(400)
-            if outputfile in data:
-                arguments.outputfile = data["outputfile"]
-            else:
-                arguments.outputfile = os.path.splitext(arguments.inputfile)[0] + "_tweaked.stl"
-            try:
-                FileHandler = FileHandler.FileHandler()
-                objs = FileHandler.load_mesh(arguments.inputfile)
-                if objs is None:
-                    sys.exit()
-            except(KeyboardInterrupt, SystemExit):
-                raise SystemExit("Error, loading mesh from file failed!")
-            c = 0
-            info = dict()
-            for part, content in objs.items():
-                mesh = content["mesh"]
-                info[part] = dict()
-                try:
-                    cstime = time()
-                    x = Tweak(mesh, verbose=False)
-                    info[part]["matrix"] = x.matrix
-                except (KeyboardInterrupt, SystemExit):
-                    raise SystemExit("\nError, tweaking process failed!")
-            if not args.result:
-                try:
-                    FileHandler.write_mesh(objs, info, arguments.outputfile, "asciistl") #arguments.outputfile should include the file path
-                except FileNotFoundError:
-                    raise FileNotFoundError("Output File '{}' not found.".format(arguments.outputfile))
+    name, type = os.path.splitext(file_object.filename)
+    if not ((type="stl") or (type="3mf")):
+        return file_object
 
-            
-                    
-                    
-            return flask.jsonify(file=os.path.split(arguments.outputfile))
 
-    def on_api_get(self, request):
-        return flask.jsonify(foo="bar")
+    FileHandler = FileHandler.FileHandler()
+    try:
+        objs = FileHandler.load_mesh(path)
+        if objs is None:
+            sys.exit()
+    except(KeyboardInterrupt, SystemExit):
+        raise SystemExit("Error, loading mesh from file failed!")
+    c = 0
+    info = dict()
+    for part, content in objs.items():
+        mesh = content["mesh"]
+        info[part] = dict()
+        try:
+            cstime = time()
+            x = Tweak(mesh, verbose=False)
+            info[part]["matrix"] = x.matrix
+        except (KeyboardInterrupt, SystemExit):
+            raise SystemExit("\nError, tweaking process failed!")
+    if not args.result:
+        try:
+            FileHandler.write_mesh(objs, info, path, "asciistl") #arguments.outputfile should include the file path
+            self._logger.info("Wrote tweaked file to {}".format(path))
+        except FileNotFoundError:
+            raise FileNotFoundError("Output File '{}' not found.".format(path))
+    
 
+    return octoprint.filemanager.util.DiskFileWrapper(file_object.filename, path))
 
 _plugin_pythoncompat__ = ">=2.7,<4" # python 2 and 3
 
@@ -93,7 +80,9 @@ def __plugin_load__():
 
     global __plugin_hooks__
     __plugin_hooks__ = {
-        "octoprint.comm.protocol.scripts": message_on_connect,
+        "octoprint.filemanager.preprocessor": tweak_on_upload,
         "octoprint.plugin.softwareupdate.check_config": __plugin_implementation__.get_update_information
     }
+
+
 
