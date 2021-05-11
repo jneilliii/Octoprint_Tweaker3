@@ -1,5 +1,9 @@
 # Python 2.7 and 3.5
 # Author: Christoph Schranz, Salzburg Research
+# Modifications to this file by Autoprint Labs:
+# Add method case to output binary stl at given path with ".tweakstl" extension 
+# to allow OctoPrint to tell which files have been tweaked
+
 
 import sys
 import os
@@ -150,7 +154,24 @@ Best,\nyour Auto-Rotate Developer\n""".format(ex_type.__name__, str(ex), stack_t
                     outname = ".".join(outputfile.split(".")[:-1]) + "_{}.stl".format(part)
                 with open(outname, 'w') as outfile:
                     outfile.write(mesh)
+# Begin Autoprint Labs addition 
+        if output_type == "tweakstl":  # binary STL, binary stl can't support multiparts
+            # Create seperate files with rotated content.
+            header = "Tweaked on {}".format(time.strftime("%a %d %b %Y %H:%M:%S")
+                                            ).encode().ljust(79, b" ") + b"\n"
+            for part, content in objects.items():
+                mesh = objects[part]["mesh"]
+                partlength = int(len(mesh) / 3)
+                mesh = self.rotate_bin_stl(info[part]["matrix"], mesh)
 
+                if len(objects.keys()) == 1:
+                    outname = ".".join(outputfile.split(".")[:-1]) + ".tweakstl".format(part)
+                else:
+                    outname = ".".join(outputfile.split(".")[:-1]) + "_{}.tweakstl".format(part)
+                length = struct.pack("<I", partlength)
+                with open(outname, 'wb') as outfile:
+                    outfile.write(bytearray(header + length + b"".join(mesh)))
+# End Autoprint Labs addition
         else:  # binary STL, binary stl can't support multiparts
             # Create seperate files with rotated content.
             header = "Tweaked on {}".format(time.strftime("%a %d %b %Y %H:%M:%S")
